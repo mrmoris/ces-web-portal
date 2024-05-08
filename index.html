@@ -2,31 +2,72 @@
 <html>
   <head>
     <title>Upload file to S3</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <script src="https://unpkg.com/vue@1.0.28/dist/vue.js"></script>
     <script src="https://unpkg.com/axios@0.2.1/dist/axios.min.js"></script>
+    <style>
+      body {
+        background-color: #f8f9fa;
+        font-family: 'Roboto', sans-serif;
+      }
+      .card {
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      }
+      .card-header {
+        background-color: #007bff;
+        color: #fff;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+      }
+      .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+      }
+      .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #004a99;
+      }
+      .img-thumbnail {
+        max-width: 300px;
+        height: auto;
+        border-radius: 10px;
+      }
+    </style>
   </head>
   <body>
-    <div id="app">
-      <h1>S3 Uploader Test</h1>
-  
-      <div v-if="!image">
-        <h2>Select an image</h2>
-        <input type="file" @change="onFileChange" accept="image/jpeg">
+    <div class="container my-5" id="app">
+      <div class="card">
+        <div class="card-header">
+          <h1 class="card-title mb-0">S3 Uploader Test</h1>
+        </div>
+        <div class="card-body">
+          <div v-if="!image">
+            <h2 class="card-subtitle mb-3">Select an image</h2>
+            <div class="custom-file">
+              <input type="file" class="custom-file-input" id="customFile" @change="onFileChange" accept="image/jpeg">
+              <label class="custom-file-label" for="customFile">Choose file</label>
+            </div>
+          </div>
+          <div v-else>
+            <img :src="image" class="img-thumbnail" />
+            <div class="mt-3">
+              <button v-if="!uploadURL" class="btn btn-danger mr-2" @click="removeImage">Remove image</button>
+              <button v-if="!uploadURL" class="btn btn-primary" @click="uploadImage">Upload image</button>
+            </div>
+          </div>
+          <div v-if="uploadURL" class="alert alert-success mt-3" role="alert">
+            Success! Image uploaded to bucket.
+          </div>
+        </div>
       </div>
-      <div v-else>
-        <img :src="image" />
-        <button v-if="!uploadURL" @click="removeImage">Remove image</button>
-        <button v-if="!uploadURL" @click="uploadImage">Upload image</button>
-      </div>
-      <h2 v-if="uploadURL">Success! Image uploaded to bucket.</h2>
     </div>
-  
+
     <script>
-      const MAX_IMAGE_SIZE = 1000000
+      const MAX_IMAGE_SIZE = 1000000;
 
       /* ENTER YOUR ENDPOINT HERE */
-
-      const API_ENDPOINT = '<< ENTER HERE >>' // e.g. https://ab1234ab123.execute-api.us-east-1.amazonaws.com/uploads
+      const API_ENDPOINT = '<< ENTER HERE >>';
 
       new Vue({
         el: "#app",
@@ -35,90 +76,46 @@
           uploadURL: ''
         },
         methods: {
-          onFileChange (e) {
-            let files = e.target.files || e.dataTransfer.files
-            if (!files.length) return
-            this.createImage(files[0])
+          onFileChange(e) {
+            let files = e.target.files || e.dataTransfer.files;
+            if (!files.length) return;
+            this.createImage(files[0]);
           },
-          createImage (file) {
-            // var image = new Image()
-            let reader = new FileReader()
+          createImage(file) {
+            let reader = new FileReader();
             reader.onload = (e) => {
-              console.log('length: ', e.target.result.includes('data:image/jpeg'))
               if (!e.target.result.includes('data:image/jpeg')) {
-                return alert('Wrong file type - JPG only.')
+                return alert('Wrong file type - JPG only.');
               }
               if (e.target.result.length > MAX_IMAGE_SIZE) {
-                return alert('Image is loo large.')
+                return alert('Image is too large.');
               }
-              this.image = e.target.result
-            }
-            reader.readAsDataURL(file)
+              this.image = e.target.result;
+            };
+            reader.readAsDataURL(file);
           },
-          removeImage: function (e) {
-            console.log('Remove clicked')
-            this.image = ''
+          removeImage: function(e) {
+            this.image = '';
           },
-          uploadImage: async function (e) {
-            console.log('Upload clicked')
-            // Get the presigned URL
+          uploadImage: async function(e) {
             const response = await axios({
               method: 'GET',
               url: API_ENDPOINT
-            })
-            console.log('Response: ', response)
-            console.log('Uploading: ', this.image)
-            let binary = atob(this.image.split(',')[1])
-            let array = []
+            });
+            let binary = atob(this.image.split(',')[1]);
+            let array = [];
             for (var i = 0; i < binary.length; i++) {
-              array.push(binary.charCodeAt(i))
+              array.push(binary.charCodeAt(i));
             }
-            let blobData = new Blob([new Uint8Array(array)], {type: 'image/jpeg'})
-            console.log('Uploading to: ', response.uploadURL)
-            const result = await fetch(response.uploadURL, {
+            let blobData = new Blob([new Uint8Array(array)], { type: 'image/jpeg' });
+            const result = await fetch(response.data.uploadURL, {
               method: 'PUT',
               body: blobData
-            })
-            console.log('Result: ', result)
-            // Final URL for the user doesn't need the query string params
-            this.uploadURL = response.uploadURL.split('?')[0]
+            });
+            this.uploadURL = response.data.uploadURL.split('?')[0];
           }
         }
-      })
+      });
     </script>
-    <style type="text/css">
-      body {
-        background: #20262E;
-        padding: 20px;
-        font-family: sans-serif;
-      }
-      #app {
-        background: #fff;
-        border-radius: 4px;
-        padding: 20px;
-        transition: all 0.2s;
-        text-align: center;
-      }
-      #logo {
-        width: 100px;
-      }
-      h2 {
-        font-weight: bold;
-        margin-bottom: 15px;
-      }
-      h1, h2 {
-        font-weight: normal;
-        margin-bottom: 15px;
-      }
-      a {
-        color: #42b983;
-      }
-      img {
-        width: 30%;
-        margin: auto;
-        display: block;
-        margin-bottom: 10px;
-      }
-    </style>
   </body>
 </html>
